@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广州市社区饭堂数据分析</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1c2541 0%, #0b132b 100%);
+            color: #e0e1dd;
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            background: rgba(16, 20, 37, 0.7);
+            border-radius: 15px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(92, 107, 192, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00bcd4, #2196f3);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #a3b0cc;
+        }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(550px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .chart-container {
+            background: rgba(26, 33, 64, 0.6);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(92, 107, 192, 0.2);
+            height: 450px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .chart-title {
+            font-size: 1.4rem;
+            color: #00bcd4;
+            font-weight: 600;
+        }
+        
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chart-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .chart-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .chart-btn.active {
+            background: linear-gradient(90deg, #00bcd4, #03a9f4);
+        }
+        
+        canvas {
+            flex: 1;
+            width: 100% !important;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 350px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>广州市社区饭堂数据分析平台</h1>
+            <div class="subtitle">基于11个行政区的社区饭堂分布、服务覆盖及服务效率数据分析</div>
+        </header>
+        
+        <div class="chart-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">食堂密度与服务半径对比 (个/km²)</div>
+                    <div class="chart-actions">
+                        <button class="chart-btn active" data-chart="densityRadius" data-type="bar">柱状图</button>
+                        <button class="chart-btn" data-chart="densityRadius" data-type="line">折线图</button>
+                    </div>
+                </div>
+                <canvas id="densityRadiusChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">每食堂服务老年人数 (人)</div>
+                    <div class="chart-actions">
+                        <button class="chart-btn active" data-chart="elderPerUnit" data-type="bar">柱状图</button>
+                        <button class="chart-btn" data-chart="elderPerUnit" data-type="line">折线图</button>
+                    </div>
+                </div>
+                <canvas id="elderPerUnitChart"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(102, 187, 106, 0.7);"></div>
+                        <div>合理负荷 (≤300人)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(255, 152, 0, 0.7);"></div>
+                        <div>中等负荷 (300-500人)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(239, 83, 80, 0.7);"></div>
+                        <div>高负荷 (≥500人)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">服务半径与步行时间 (分钟)</div>
+                    <div class="chart-actions">
+                        <button class="chart-btn active" data-chart="serviceRadius" data-type="bar">柱状图</button>
+                        <button class="chart-btn" data-chart="serviceRadius" data-type="line">折线图</button>
+                    </div>
+                </div>
+                <canvas id="serviceRadiusChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">各区服务半径热力图</div>
+                    <div class="chart-actions">
+                        <button class="chart-btn active" data-chart="heatmap" data-type="bar">柱状图</button>
+                        <button class="chart-btn" data-chart="heatmap" data-type="line">折线图</button>
+                    </div>
+                </div>
+                <canvas id="heatmapChart"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(0, 150, 136, 0.9);"></div>
+                        <div>良好覆盖 (≤1km)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(255, 193, 7, 0.9);"></div>
+                        <div>临界覆盖 (1-3km)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: rgba(244, 67, 54, 0.9);"></div>
+                        <div>覆盖不足 (≥3km)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 行政区数据
+        const regions = ['荔湾区', '越秀区', '海珠区', '天河区', '白云区', '黄埔区', '番禺区', '花都区', '南沙区', '从化区', '增城区'];
+        
+        // 核心指标数据
+        const densityData = [2.58, 3.34, 1.12, 1.38, 0.31, 0.39, 0.29, 0.04, 0.17, 0.01, 0.06];
+        const radiusData = [0.35, 0.30, 0.53, 0.48, 1.42, 1.13, 1.21, 4.83, 2.36, 8.55, 4.10];
+        const elderPerUnit = [Math.round(28916/161), Math.round(33186/113), 
+                              Math.round(50308/101), Math.round(69846/133),
+                              Math.round(98400/243), Math.round(52215/190),
+                              Math.round(113557/154), Math.round(40657/43),
+                              Math.round(33248/137), Math.round(5530/27),
+                              Math.round(38622/97)];
+        
+        // 计算步行时间（按步行速度4km/h）
+        const walkTime = radiusData.map(r => Math.round((r / 4) * 60));
+        
+        // 图表对象
+        let densityRadiusChart, elderPerUnitChart, serviceRadiusChart, heatmapChart;
+        
+        // 初始化图表
+        function initCharts() {
+            // 创建复合图表（密度和半径）
+            const densityRadiusCtx = document.getElementById('densityRadiusChart').getContext('2d');
+            densityRadiusChart = new Chart(densityRadiusCtx, {
+                type: 'bar',
+                data: {
+                    labels: regions,
+                    datasets: [
+                        {
+                            label: '食堂密度 (个/km²)',
+                            data: densityData,
+                            backgroundColor: 'rgba(41, 182, 246, 0.7)',
+                            borderColor: 'rgba(41, 182, 246, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            yAxisID: 'y',
+                        },
+                        {
+                            label: '服务半径 (km)',
+                            data: radiusData,
+                            backgroundColor: 'rgba(255, 152, 0, 0.7)',
+                            borderColor: 'rgba(255, 152, 0, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            type: 'line',
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: '食堂密度 (个/km²)',
+                                color: '#29b6f6'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#29b6f6'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '服务半径 (km)',
+                                color: '#ff9800'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            ticks: {
+                                color: '#ff9800'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#e0e1dd',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e1dd',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 30, 40, 0.9)',
+                            titleColor: '#bb86fc',
+                            bodyColor: '#ffffff',
+                            borderColor: '#7b1fa2',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 创建每单位服务老年人数图表
+            const elderPerUnitCtx = document.getElementById('elderPerUnitChart').getContext('2d');
+            elderPerUnitChart = new Chart(elderPerUnitCtx, {
+                type: 'bar',
+                data: {
+                    labels: regions,
+                    datasets: [{
+                        label: '每食堂服务老年人数',
+                        data: elderPerUnit,
+                        backgroundColor: elderPerUnit.map(val => 
+                            val > 500 ? 'rgba(239, 83, 80, 0.7)' : 
+                            val > 300 ? 'rgba(255, 152, 0, 0.7)' : 'rgba(102, 187, 106, 0.7)'
+                        ),
+                        borderColor: elderPerUnit.map(val => 
+                            val > 500 ? 'rgba(239, 83, 80, 1)' : 
+                            val > 300 ? 'rgba(255, 152, 0, 1)' : 'rgba(102, 187, 106, 1)'
+                        ),
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '老年人数',
+                                color: '#66bb6a'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#66bb6a'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#e0e1dd',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 30, 40, 0.9)',
+                            titleColor: '#bb86fc',
+                            bodyColor: '#ffffff',
+                            borderColor: '#7b1fa2',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${regions[context.dataIndex]}: ${context.parsed.y} 位老人`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 创建服务半径与步行时间图表
+            const serviceRadiusCtx = document.getElementById('serviceRadiusChart').getContext('2d');
+            serviceRadiusChart = new Chart(serviceRadiusCtx, {
+                type: 'bar',
+                data: {
+                    labels: regions,
+                    datasets: [
+                        {
+                            label: '服务半径 (km)',
+                            data: radiusData,
+                            backgroundColor: 'rgba(156, 39, 176, 0.7)',
+                            borderColor: 'rgba(156, 39, 176, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                        {
+                            label: '步行时间 (分钟)',
+                            data: walkTime,
+                            backgroundColor: 'rgba(3, 169, 244, 0.7)',
+                            borderColor: 'rgba(3, 169, 244, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '距离 (km) / 时间 (分钟)',
+                                color: '#e0e1dd'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#e0e1dd'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#e0e1dd',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e0e1dd',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 30, 40, 0.9)',
+                            titleColor: '#bb86fc',
+                            bodyColor: '#ffffff',
+                            borderColor: '#7b1fa2',
+                            borderWidth: 1,
+                            padding: 12
+                        }
+                    }
+                }
+            });
+            
+            // 创建服务半径热力图
+            const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+            heatmapChart = new Chart(heatmapCtx, {
+                type: 'bar',
+                data: {
+                    labels: regions,
+                    datasets: [{
+                        label: '服务半径 (km)',
+                        data: radiusData,
+                        backgroundColor: radiusData.map(val => {
+                            if (val <= 1) return 'rgba(0, 150, 136, 0.9)';
+                            if (val <= 3) return 'rgba(255, 193, 7, 0.9)';
+                            return 'rgba(244, 67, 54, 0.9)';
+                        }),
+                        borderColor: radiusData.map(val => {
+                            if (val <= 1) return 'rgba(0, 150, 136, 1)';
+                            if (val <= 3) return 'rgba(255, 193, 7, 1)';
+                            return 'rgba(244, 67, 54, 1)';
+                        }),
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '服务半径 (km)',
+                                color: '#e0e1dd'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)'
+                            },
+                            ticks: {
+                                color: '#e0e1dd'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#e0e1dd',
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 30, 40, 0.9)',
+                            titleColor: '#bb86fc',
+                            bodyColor: '#ffffff',
+                            borderColor: '#7b1fa2',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return `服务半径: ${context.parsed.y} km`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 切换图表类型
+        function toggleChartType(chartId, chartType) {
+            const chart = {
+                'densityRadius': densityRadiusChart,
+                'elderPerUnit': elderPerUnitChart,
+                'serviceRadius': serviceRadiusChart,
+                'heatmap': heatmapChart
+            }[chartId];
+            
+            if (chart) {
+                chart.config.type = chartType;
+                chart.update();
+            }
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            
+            // 图表切换按钮事件
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const chartId = this.dataset.chart;
+                    const chartType = this.dataset.type;
+                    
+                    // 更新按钮状态
+                    const container = this.closest('.chart-actions');
+                    container.querySelectorAll('.chart-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    // 切换图表类型
+                    toggleChartType(chartId, chartType);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
